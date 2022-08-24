@@ -1,20 +1,15 @@
+# Certain helper functions adapted from
+# https://github.com/rowanz/piglet/blob/main/sampler/ai2thor_env.py
+
 import math
 import numpy as np
 from PIL import Image
 
 
-def valid_receptacle(objid, object_metadata):
-    if objid not in object_metadata:
-        return False
-    met = object_metadata[objid]
-    return met['receptacle'] and (not met['openable'] or met['isOpen']) and ('Floor' not in met['objectId']) #met['position']['y'] >= 0.25
-
-
-def visible_receptacle(objid, object_metadata):
-    return valid_receptacle(objid, object_metadata) and object_metadata[objid]['visible']
-
-
 class ControllerWrapper:
+    """
+    Wraps the AI2Thor controller
+    """
     def __init__(self, controller):
         self.controller = controller
 
@@ -34,6 +29,11 @@ class ControllerWrapper:
         return self.get_metadata()["lastActionSuccess"]
 
     def drop(self, objid):
+        """
+        Drops the object; must look down in order to see the effects of dropping
+        :param objid: id of object to drop
+        :return:
+        """
         self.controller.step("LookDown", degrees=60)
         if not self.last_success():
             self.controller.step("LookDown", degrees=30)
@@ -71,12 +71,21 @@ class ControllerWrapper:
         return self.all_objects_with_properties({'pickupable': True})
 
     def get_receptacles(self):
+        """
+        Gets a list of all receptacles in the current scene that meet certain conditions (e.g. not floor)
+        :return:
+        """
         all_objs = self.all_objects()
         object_metadata = {obj['objectId']: obj for obj in self.all_objects()}
         valid_receptacles = [obj for obj in all_objs if valid_receptacle(obj['objectId'], object_metadata)]
         return valid_receptacles
 
     def get_largest_receptacles(self):
+        """
+        Gets large receptacles in the current scene (for the purpose of finding somewhere to place
+        objects
+        :return:
+        """
         valid_receptacles = self.get_receptacles()
         largest_receptacles = sorted(valid_receptacles, key=lambda obj: _size3d(obj), reverse=True)
         return largest_receptacles
@@ -150,8 +159,12 @@ class ControllerWrapper:
         return self.last_success()
 
     def toggle(self, objid=None):
+        """
+        Toggle on if off; toggle off if on
+        :param objid:
+        :return:
+        """
         objid = objid if objid is not None else self.objid
-
         obj = self.get_object_by_id(objid)
         if obj['toggleable']:
             if obj['isToggled']:
@@ -274,10 +287,14 @@ class ControllerWrapper:
             moveMagnitude=push_strength,
             pushAngle="180"
         )
-        #self.controller.step("LookDown", degrees=30)
         return self.last_success()
 
     def put_careful(self, objid=None):
+        """
+        Put the object down, in a place where the agent can see it
+        :param objid:
+        :return:
+        """
         receptacle_id = self.receptacle_id
         heldobj = self.get_held()
         recep = self.put(receptacle_id)
@@ -290,7 +307,6 @@ class ControllerWrapper:
         if spawncoords is None:
             return
         agloc = self.get_agent_location()
-        recep_loc = self.get_object_by_id(receptacle_id)['position']
 
         ax = self.get_axis()
         ax = 'z' if ax == 'x' else 'x'
@@ -304,12 +320,10 @@ class ControllerWrapper:
                 objectId=heldobj['objectId'],
                 position=sp
             )
-            metadata_dict = {obj['objectId']: obj for obj in self.all_objects()}
             heldobjid = heldobj['objectId']
             success = self.last_success()
-            visible = self.get_bounding_box(heldobjid) != (0,0,0,0) #metadata_dict[heldobjid]['visible']
+            visible = self.get_bounding_box(heldobjid) != (0,0,0,0)
             if success and visible:
-                # print(dist(sp, agloc))
                 return True
         print(f'failed to put careful; success: {success}, visible:{visible}, bbox:{self.get_bounding_box(heldobjid)}')
         return False
@@ -350,7 +364,11 @@ class ControllerWrapper:
         )
 
     def attempt_teleport(self, obj):
-        objid = obj['objectId']
+        """
+        attempt to teleport near an object
+        :param obj:
+        :return:
+        """
         objpos = obj['position']
         agentpos = self.get_agent_location()
         for axis in ['x', 'z']:
@@ -365,7 +383,6 @@ class ControllerWrapper:
 
                 if self.last_success():
                     return newpos
-        # print('failed to teleport')
         return None
 
     def teleport(self, newpos):
@@ -376,19 +393,29 @@ class ControllerWrapper:
         self.controller.step("RotateLeft")
 
     def best_direction(self, obj):
+        """
+        Find the number of rotations that yields the best view of obj
+        :param obj:
+        :return:
+        """
         objid = obj['objectId']
         areas = []
         for i in range(4):
             masks = self.controller.last_event.instance_masks
             area = masks[objid].sum() if objid in masks else 0
             areas.append(area)
-            self.controller.step("RotateLeft")
+            self.rotate()
         return max(list(range(4)), key=lambda i: areas[i]), max(areas)
 
     def remove(self, objid):
         self.controller.step('RemoveFromScene', objectId=objid)
 
     def clear(self, objid):
+        """
+        Clear all objects off of the given object
+        :param objid:
+        :return:
+        """
         if objid is None:
             return
         receptacle = self.get_object_by_id(objid)
@@ -452,7 +479,27 @@ def dist(p1, p2):
 
 
 def penalized_dist(p1, p2, penalized_direction):
+    """
+    A distance function that penalizes distance in a certain direction.
+    This is good when we want to ensure an object stays in the agent's FoV (and thus doesn't move
+    too far in a direction that would push it out)
+    :param p1:
+    :param p2:
+    :param penalized_direction:
+    :return:
+    """
     xpen = 5 if penalized_direction == 'x' else 1
     zpen = 5 if penalized_direction == 'z' else 1
     return math.sqrt(xpen * (p1['x']-p2['x'])**2 + zpen * (p1['z']-p2['z'])**2)
+
+
+def valid_receptacle(objid, object_metadata):
+    if objid not in object_metadata:
+        return False
+    obj = object_metadata[objid]
+    return obj['receptacle'] and (not obj['openable'] or obj['isOpen']) and ('Floor' not in obj['objectId'])
+
+
+def visible_receptacle(objid, object_metadata):
+    return valid_receptacle(objid, object_metadata) and object_metadata[objid]['visible']
 

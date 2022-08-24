@@ -1,3 +1,6 @@
+# Certain helper functions adapted from
+# https://github.com/rowanz/piglet/blob/main/sampler/ai2thor_env.py
+
 import math
 import numpy as np
 from PIL import Image
@@ -251,7 +254,6 @@ class ControllerWrapper:
             moveMagnitude=push_strength,
             pushAngle="180"
         )
-        #self.controller.step("LookDown", degrees=30)
         return self.last_success()
 
     def put_careful(self, objid=None):
@@ -266,7 +268,6 @@ class ControllerWrapper:
         spawncoords = self.get_metadata()['actionReturn']
         if spawncoords is None:
             return
-        #print('spawns', len(spawncoords))
         agloc = self.get_agent_location()
         recep_loc = self.get_object_by_id(receptacle_id)['position']
 
@@ -274,9 +275,6 @@ class ControllerWrapper:
         ax = 'z' if ax == 'x' else 'x'
 
         sorted_sp = sorted(spawncoords, key=lambda sp: penalized_dist(sp, agloc, ax))
-        #if len(sorted_sp) > 5:
-        #    start = int(len(sorted_sp) * 0.25)
-        #    sorted_sp = sorted_sp[start:]
         for sp in sorted_sp:
             if dist(sp, agloc) < 0.85:
                 continue
@@ -426,73 +424,3 @@ def penalized_dist(p1, p2, penalized_direction):
     xpen = 5 if penalized_direction == 'x' else 1
     zpen = 5 if penalized_direction == 'z' else 1
     return math.sqrt(xpen * (p1['x']-p2['x'])**2 + zpen * (p1['z']-p2['z'])**2)
-
-if __name__ == '__main__':
-    from ai2thor.controller import Controller
-    np.random.seed(42)
-
-    controller = ControllerWrapper(Controller())
-    scenes = controller.controller.ithor_scenes()
-    controller.reset(scene=scenes[2])
-
-    pickupable = controller.get_pickupable()[-2]
-    controller.force_pick_up(pickupable['objectId'])
-
-    larec = controller.get_largest_receptacles()[0]
-
-    for objid in larec['receptacleObjectIds']:
-        controller.controller.step('RemoveFromScene', objectId=objid)
-
-    orig_pos = controller.get_agent_location()
-    larec_pos = larec['position']
-    print([rec['name'] for rec in controller.get_receptacles()])
-    print(larec)
-    print('org',orig_pos)
-    print('rec', larec_pos)
-    # larec_pos['x'] - 0.93,
-    # larec_pos['z']
-    pos = {'x': round_to_quarter(larec_pos['x'] - 1), 'y': orig_pos['y'], 'z': round_to_quarter(larec_pos['z'])}
-    print('new',pos)
-    #controller.controller.step('Teleport', position=pos)
-    controller.attempt_teleport(larec)
-    #controller.controller.step("RotateLeft")
-    #controller.controller.step(action="MoveAhead",moveMagnitude=1.0)
-    #controller.controller.step("RotateRight")
-    #{'x': 0.0, 'y': 0.9009992480278015, 'z': -0.25, 'rotation': 90.0, 'horizon': -0.0, 'standing': True}
-
-    print(controller.last_success())
-    print(controller.get_agent_location())
-
-    rots, area = controller.best_direction(larec)
-    for _ in range(rots):
-        controller.controller.step("RotateLeft")
-    controller.get_image().save(f'nav0.png')
-
-
-    heldobj = controller.get_held()
-    recep = controller.put(larec['objectId'])
-    controller.controller.step(
-        action="GetSpawnCoordinatesAboveReceptacle",
-        objectId=larec['objectId'],
-        anywhere=False
-    )
-    spawncoords = controller.get_metadata()['actionReturn']
-    print('spawns', len(spawncoords))
-    agloc = controller.get_agent_location()
-    sorted_sp = sorted(spawncoords, key=lambda sp: dist(sp, agloc))
-    for sp in sorted_sp:
-        controller.controller.step(
-            action="PlaceObjectAtPoint",
-            objectId=heldobj['objectId'],
-            position=sp
-        )
-        metadata_dict = {obj['objectId']: obj for obj in controller.all_objects()}
-        heldobjid = heldobj['objectId']
-        if controller.last_success() and metadata_dict[heldobjid]['visible']:
-            print('did it')
-            break
-
-    for i in range(4):
-        controller.get_image().save(f'nav{i+1}.png')
-        controller.controller.step("RotateLeft")
-

@@ -52,7 +52,6 @@ def get_bounding_boxes(max_bboxes):
         if len(bbxs) >= max_bboxes:
             break
 
-    #np_bbxs = np.stack(bbxs)
     indices = list(range(len(bbxs)))
     random.shuffle(indices)
     val_index = int(0.8 * len(indices))
@@ -348,7 +347,7 @@ def do_one_scene(scene, max_images, contrast_set, path):
 
 if __name__ == '__main__':
     # default scene is 'FloorPlan10_physics'
-    args = parser.parse_args() #['--contrast_set', 'pickupable-not-held', '--scene', '11', '-p', 'new-data'])
+    args = parser.parse_args()
     scene = args.scene
     max_images = args.max_images
     contrast_set = args.contrast_set
