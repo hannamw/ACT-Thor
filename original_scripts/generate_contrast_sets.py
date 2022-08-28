@@ -25,6 +25,31 @@ for scene_list in scene_lists:
 scenes = kitchens + living_rooms + bedrooms + bathrooms
 scene_map = {scene: 'train' if scene in train_scenes else ('valid' if scene in valid_scenes else 'test') for scene in scenes}
 
+def collate_datasets(path='data'):
+    path = Path(path)
+    cs_dfs = []
+    for cs in ['pickupable-held', 'pickupable-not-held']:
+        cs_path = path / cs
+        dfs = []
+        for possible_dir in cs_path.iterdir():
+            if not possible_dir.is_dir():
+                continue
+            df_path = possible_dir / 'metadata.csv'
+            df = pd.read_csv(df_path)
+            df['scene'] = [possible_dir.name for _ in range(len(df))]
+            dfs.append(df)
+
+        cs_df = pd.concat(dfs)
+        cs_df['contrast_set'] = [cs for _ in range(len(cs_df))]
+        cs_df.to_csv(cs_path/'metadata.csv')
+        cs_dfs.append(cs_df)
+    full_df = pd.concat(cs_dfs)
+    full_df['before_image_path'] = [path / cs / scene / bi for cs, scene, bi in zip(full_df['contrast_set'], full_df['scene'],
+                                                                         full_df['before_image_name'])]
+    full_df['after_image_path'] = [path / cs / scene / bi for cs, scene, bi in zip(full_df['contrast_set'], full_df['scene'],
+                                                                         full_df['image_name'])]
+    full_df.to_csv(path / 'metadata.csv')
+    return full_df
 
 def generate_contrast_set(path='new-data', n_imgs=None, share_cs=True, share_scene=True, share_object=True, prohibit_put_throw=True, force_remake=False):
     path = Path(path)
@@ -264,5 +289,6 @@ def augment_contrast_set(path, cs_df, same_recep=False):
 
 
 if __name__ == '__main__':
-    generate_contrast_set(path='data-improved-descriptions', n_imgs=None, share_cs=True, share_scene=True, share_object=True, prohibit_put_throw=True)
-    augment_contrast_set('data-improved-descriptions', 'dataset_cs_scene_object_nopt.csv', same_recep=True)
+    collate_datasets(path='data')
+    generate_contrast_set(path='data', n_imgs=None, share_cs=True, share_scene=True, share_object=True, prohibit_put_throw=True)
+    augment_contrast_set('data', 'dataset_cs_scene_object_nopt.csv', same_recep=True)

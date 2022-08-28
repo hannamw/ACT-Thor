@@ -11,7 +11,7 @@ parser.add_argument('-ei', '--end_index', default=None, type=int)
 parser.add_argument('-p', '--path', type=str, default='data')
 
 
-args = parser.parse_args()  # ['--contrast_set', 'pickupable-not-held', '--scene', '11', '-p', 'new-data'])
+args = parser.parse_args()
 scene = args.scene
 path = Path(args.path)
 

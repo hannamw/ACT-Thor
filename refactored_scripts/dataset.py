@@ -224,6 +224,8 @@ def gen_prep_and_filepath(adict):
         fp = fp + '1'
     else:
         prep_fns.append(not_held_setup)
+        fp = fp + '0'
+
 
     true_fns = [controller.open, controller.dirty, controller.fill, controller.toggle]
     false_fns = [controller.close, dummy, controller.empty, controller.toggle]

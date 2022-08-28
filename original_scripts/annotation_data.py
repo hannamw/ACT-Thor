@@ -15,33 +15,6 @@ random.seed(42)
 np.random.seed(42)
 
 
-def collate_datasets(path='new-data'):
-    path = Path(path)
-    cs_dfs = []
-    for cs in ['pickupable-held', 'pickupable-not-held']:
-        cs_path = path / cs
-        dfs = []
-        for possible_dir in cs_path.iterdir():
-            if not possible_dir.is_dir():
-                continue
-            df_path = possible_dir / 'metadata.csv'
-            df = pd.read_csv(df_path)
-            df['scene'] = [possible_dir.name for _ in range(len(df))]
-            dfs.append(df)
-
-        cs_df = pd.concat(dfs)
-        cs_df['contrast_set'] = [cs for _ in range(len(cs_df))]
-        cs_df.to_csv(cs_path/'metadata.csv')
-        cs_dfs.append(cs_df)
-    full_df = pd.concat(cs_dfs)
-    full_df['before_image_path'] = [path / cs / scene / bi for cs, scene, bi in zip(full_df['contrast_set'], full_df['scene'],
-                                                                         full_df['before_image_name'])]
-    full_df['after_image_path'] = [path / cs / scene / bi for cs, scene, bi in zip(full_df['contrast_set'], full_df['scene'],
-                                                                         full_df['image_name'])]
-    full_df.to_csv(path / 'metadata.csv')
-    return full_df
-
-
 def generate_contrast_annotation_dataset(n_afters):
     path = Path('data')
     contrast_path = path / f'contrast-{n_afters}'

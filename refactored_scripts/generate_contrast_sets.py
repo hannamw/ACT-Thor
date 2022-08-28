@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from pathlib import Path
 from collections import defaultdict
 import random
@@ -7,6 +8,11 @@ import pandas as pd
 import numpy as np
 
 random.seed(42)
+parser = ArgumentParser()
+parser.add_argument('-p', '--path', type=str, default='data')
+
+args = parser.parse_args()
+path = Path(args.path)
 
 # enforce put / throw constraint
 opposite_action = {'put':'throw', 'throw':'put', 'push':'pull', 'pull':'push'}
@@ -238,6 +244,6 @@ def augment_contrast_set(path, original_df, contrast_df, same_recep=False):
 
 
 if __name__ == '__main__':
-    collate_datasets('data')
-    generate_contrast_set(path='data', n_imgs=None, share_held=True, share_scene=True, share_object=True,
+    collate_datasets(path)
+    generate_contrast_set(path=path, n_imgs=None, share_held=True, share_scene=True, share_object=True,
                           prohibit_put_throw=True, share_code=True)
