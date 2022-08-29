@@ -18,17 +18,14 @@ path = Path(args.path)
 if not path.exists():
     path.mkdir(parents=True)
 
-if scene == 'all':
+if scene is None:
     start_index = 0 if args.start_index is None else args.start_index
     end_index = len(scenes) if args.end_index is None else args.end_index
     for s in scenes[start_index:end_index]:
-        #print('doing scene', s)
         do_one_scene_all(s, path)
 
 else:
     if scene.isdigit():
         scene = scenes[int(scene)]
-    if scene is None:
-        scene = scenes[0]
     assert isinstance(scene, str), f'got bad scene ({scene}) of type {type(scene)}'
     do_one_scene_all(scene, path)
