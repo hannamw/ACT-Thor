@@ -1,0 +1,1 @@
+This code comes from torchvision's reference [repository](https://github.com/pytorch/vision/tree/main/references/detection) for detection models.
